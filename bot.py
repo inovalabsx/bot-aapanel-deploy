@@ -1014,9 +1014,68 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ── Fallback for text input ──
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Fallback for text input in conversation states"""
     state = context.user_data.get('awaiting')
+    
+    # Config editor commands
     if state in ('cfg_server', 'cfg_git'):
         return await config_handle_input(update, context)
+    
+    # ── First run flow: ask one field at a time ──
+    text = update.message.text.strip()
+    
+    if state == 'server_name':
+        context.user_data['new_server_name'] = text
+        context.user_data['awaiting'] = 'server_ip'
+        await update.message.reply_text(
+            f'✅ Servidor *{text}*\n\n📌 *IP do servidor:*',
+            parse_mode='Markdown'
+        )
+        return SELECT_SERVER
+    
+    if state == 'server_ip':
+        context.user_data['new_server_ip'] = text
+        context.user_data['awaiting'] = 'git_platform'
+        await update.message.reply_text(
+            '🌐 *Plataforma git:* (github / gitlab)',
+            parse_mode='Markdown'
+        )
+        return SELECT_SERVER
+    
+    if state == 'git_platform':
+        if text.lower() not in ('github', 'gitlab'):
+            await update.message.reply_text('❌ Digite *github* ou *gitlab*', parse_mode='Markdown')
+            return SELECT_SERVER
+        context.user_data['new_git_platform'] = text.lower()
+        context.user_data['awaiting'] = 'git_user'
+        await update.message.reply_text(
+            '🌐 *Usuário git:*',
+            parse_mode='Markdown'
+        )
+        return SELECT_SERVER
+    
+    if state == 'git_user':
+        context.user_data['new_git_user'] = text
+        # Save config
+        name = context.user_data.get('new_server_name', 'default')
+        ip = context.user_data.get('new_server_ip', '')
+        platform = context.user_data.get('new_git_platform', 'github')
+        user = text
+        
+        user_dir = context.user_data['user_dir']
+        cfg = {}
+        cfg['servidores'] = {name: {'host': ip, 'user': 'root', 'password': '', 'aapanel': {'api_key': '', 'entrance': '', 'url': f'https://{ip}'}}}
+        cfg['git'] = {platform: {user: {'token': '', 'email': ''}}}
+        save_user_config(user_dir, cfg)
+        
+        # Cleanup
+        for k in ['new_server_name', 'new_server_ip', 'new_git_platform', 'new_git_user', 'awaiting']:
+            context.user_data.pop(k, None)
+        
+        await update.message.reply_text('✅ *Config salva!*', parse_mode='Markdown')
+        return await show_main_menu(update, context)
+    
+    # Nothing matched — show hint
     await update.message.reply_text('Use os botões do menu :)')
 
 # ── /restart command ──
