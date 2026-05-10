@@ -354,16 +354,13 @@ async def add_site_check_domain(update: Update, context: ContextTypes.DEFAULT_TY
     return await ask_git_source(update, context)
 
 async def ask_git_source(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [
-        [InlineKeyboardButton('📦 Sim, tenho repositório', callback_data='git_ask_link')],
-        [InlineKeyboardButton('⏭ Pular (deploy manual)', callback_data='git_skip')],
-    ]
     await update.effective_message.reply_text(
-        '📦 *Git:*\nTem um repositório GitHub pra esse projeto?',
-        reply_markup=InlineKeyboardMarkup(keyboard),
+        '📦 *Link do repositório GitHub:*\n'
+        '(ex: `https://github.com/user/repo.git`)\n'
+        'ou digite 0 pra pular.',
         parse_mode='Markdown'
     )
-    return ADD_GIT_SOURCE
+    return ADD_GIT_LINK
 
 async def git_ask_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_message.reply_text(
@@ -885,8 +882,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await add_site_domain(update, context)
     
     # Git
-    if data == 'git_ask_link':
-        return await git_ask_link(update, context)
     if data == 'git_skip':
         return await git_skip(update, context)
     
@@ -1028,20 +1023,57 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if state == 'git_user':
         context.user_data['new_git_user'] = text
-        # Save config
+        context.user_data['awaiting'] = 'git_token'
+        await update.message.reply_text(
+            '🔑 *Token de acesso do GitHub:*\n'
+            '(gere em github.com/settings/tokens com scope `repo`)',
+            parse_mode='Markdown'
+        )
+        return SELECT_SERVER
+    
+    if state == 'git_token':
+        context.user_data['new_git_token'] = text
+        context.user_data['awaiting'] = 'aapanel_key'
+        await update.message.reply_text(
+            '🔑 *API Key do aaPanel:*\n'
+            '(Painel aaPanel → Settings → API → Generate key)',
+            parse_mode='Markdown'
+        )
+        return SELECT_SERVER
+    
+    if state == 'aapanel_key':
+        context.user_data['new_aapanel_key'] = text
+        context.user_data['awaiting'] = 'aapanel_entrance'
+        await update.message.reply_text(
+            '🔑 *Caminho de entrada do aaPanel:*\n'
+            '(Enter = vazio. Ex: `/painel123`)',
+            parse_mode='Markdown'
+        )
+        return SELECT_SERVER
+    
+    if state == 'aapanel_entrance':
+        context.user_data['new_entrance'] = text
+        # Save everything
         name = context.user_data.get('new_server_name', 'default')
         ip = context.user_data.get('new_server_ip', '')
         platform = context.user_data.get('new_git_platform', 'github')
-        user = text
+        git_user = context.user_data.get('new_git_user', '')
+        git_token = context.user_data.get('new_git_token', '')
+        aapanel_key = context.user_data.get('new_aapanel_key', '')
+        entrance = text
         
         user_dir = context.user_data['user_dir']
         cfg = {}
-        cfg['servidores'] = {name: {'host': ip, 'user': 'root', 'password': '', 'aapanel': {'api_key': '', 'entrance': '', 'url': f'https://{ip}'}}}
-        cfg['git'] = {platform: {user: {'token': '', 'email': ''}}}
+        cfg['servidores'] = {name: {
+            'host': ip, 'user': 'root', 'password': '',
+            'aapanel': {'api_key': aapanel_key, 'entrance': entrance, 'url': f'https://{ip}'}
+        }}
+        cfg['git'] = {platform: {git_user: {'token': git_token, 'email': ''}}}
         save_user_config(user_dir, cfg)
         
         # Cleanup
-        for k in ['new_server_name', 'new_server_ip', 'new_git_platform', 'new_git_user', 'awaiting']:
+        for k in ['new_server_name', 'new_server_ip', 'new_git_platform', 'new_git_user', 'new_git_token',
+                   'new_aapanel_key', 'new_entrance', 'awaiting']:
             context.user_data.pop(k, None)
         
         context.user_data['selected_server'] = name
