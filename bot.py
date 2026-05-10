@@ -996,7 +996,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['awaiting'] = 'server_ip'
         await update.message.reply_text(
             f'✅ Servidor *{text}*\n\n📌 *IP e porta do servidor:*\n'
-            '(ex: 152.53.229.195:13126)',
+            '(ex: `192.168.1.1:8888`)',
             parse_mode='Markdown'
         )
         return SELECT_SERVER
