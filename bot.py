@@ -263,7 +263,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_dir = context.user_data['user_dir']
     cfg = load_user_config(user_dir)
     
-    if not cfg:
+    if not cfg or not cfg.get('servidores') or not cfg.get('git'):
         await update.message.reply_text(
             '🤖 *Bot aaPanel Deploy*\n\n'
             'Nenhuma configuração encontrada.\n'
