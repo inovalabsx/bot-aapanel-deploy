@@ -1,0 +1,17 @@
+[Unit]
+Description=Bot aapanel-deploy (Telegram)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/bots/bot-aapanel-deploy
+ExecStartPre=/usr/bin/git -C /bots/bot-aapanel-deploy pull
+ExecStart=/bots/bot-aapanel-deploy/.venv/bin/python bot.py
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/bot-aapanel-deploy.log
+StandardError=append:/var/log/bot-aapanel-deploy.log
+
+[Install]
+WantedBy=multi-user.target
