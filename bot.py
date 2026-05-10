@@ -38,12 +38,12 @@ BOT_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 # ── Conversation States ──
 (SELECT_SERVER, MAIN_MENU,
- ADD_DOMAIN, ADD_GIT_SOURCE, ADD_GIT_CONFIRM, ADD_GIT_LINK, ADD_GIT_SKIP,
+    ADD_DOMAIN, ADD_GIT_SOURCE, ADD_GIT_LINK, ADD_GIT_SKIP,
  ADD_DB_PRESENT, ADD_DB_OPT_IN, ADD_DB_ENGINE, ADD_DB_NAME,
  ADD_SSL, ADD_DEPLOY_CHOICE, ADD_RESULT,
  UPDATE_DOMAIN, UPDATE_CHOOSE, UPDATE_EXEC,
  REMOVE_DOMAIN, REMOVE_CONFIRM,
- CONFIG_MENU) = range(20)
+    CONFIG_MENU) = range(19)
 
 # ── Auth decorator ──
 def restricted(func):
@@ -354,46 +354,20 @@ async def add_site_check_domain(update: Update, context: ContextTypes.DEFAULT_TY
     return await ask_git_source(update, context)
 
 async def ask_git_source(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Try to detect git in current folder
-    try:
-        result = subprocess.run(
-            ['git', 'remote', 'get-url', 'origin'],
-            capture_output=True, text=True, timeout=5
-        )
-        if result.returncode == 0:
-            git_url = result.stdout.strip()
-            context.user_data['detected_git'] = git_url
-            keyboard = [
-                [InlineKeyboardButton('✅ Sim, é esse', callback_data='git_use_detected')],
-                [InlineKeyboardButton('❌ Não, outro link', callback_data='git_ask_link')],
-            ]
-            await update.effective_message.reply_text(
-                f'🔍 Detectei: `{git_url}`\n\nÉ esse repo?',
-                reply_markup=InlineKeyboardMarkup(keyboard),
-                parse_mode='Markdown'
-            )
-            return ADD_GIT_CONFIRM
-    except: pass
-    
-    # No git detected
     keyboard = [
-        [InlineKeyboardButton('📦 Link do repositório', callback_data='git_ask_link')],
+        [InlineKeyboardButton('📦 Sim, tenho repositório', callback_data='git_ask_link')],
         [InlineKeyboardButton('⏭ Pular (deploy manual)', callback_data='git_skip')],
     ]
     await update.effective_message.reply_text(
-        '📦 *Git:*\nNenhum repo detectado.',
+        '📦 *Git:*\nTem um repositório GitHub pra esse projeto?',
         reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode='Markdown'
     )
     return ADD_GIT_SOURCE
 
-async def git_use_detected(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data['git_url'] = context.user_data['detected_git']
-    return await ask_db(update, context)
-
 async def git_ask_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_message.reply_text(
-        '📌 Link do repositório GitHub:\n'
+        '📌 Link do repositório:\n'
         '(ex: `https://github.com/user/repo.git`)\n'
         'ou digite 0 pra pular.',
         parse_mode='Markdown'
@@ -911,8 +885,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await add_site_domain(update, context)
     
     # Git
-    if data == 'git_use_detected':
-        return await git_use_detected(update, context)
     if data == 'git_ask_link':
         return await git_ask_link(update, context)
     if data == 'git_skip':
@@ -1072,6 +1044,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for k in ['new_server_name', 'new_server_ip', 'new_git_platform', 'new_git_user', 'awaiting']:
             context.user_data.pop(k, None)
         
+        context.user_data['selected_server'] = name
         await update.message.reply_text('✅ *Config salva!*', parse_mode='Markdown')
         return await show_main_menu(update, context)
     
@@ -1109,7 +1082,6 @@ def main():
                 CallbackQueryHandler(button_callback),
             ],
             ADD_GIT_SOURCE: [CallbackQueryHandler(button_callback)],
-            ADD_GIT_CONFIRM: [CallbackQueryHandler(button_callback)],
             ADD_GIT_LINK: [MessageHandler(
                 filters.TEXT & ~filters.COMMAND, git_set_link)],
             ADD_DB_OPT_IN: [CallbackQueryHandler(button_callback)],
